@@ -63,6 +63,28 @@ public class CatalogueGateway {
         return new Resolved(created.path("id").asLong(), true);
     }
 
+    /** True if a recipe with this exact name and creator already exists (crawl dedup across runs). */
+    public boolean recipeExists(String name, String creator) {
+        if (name == null || name.isBlank()) {
+            return false;
+        }
+        JsonNode page = recipes.get()
+                .uri(uri -> uri.path("/api/recipes").queryParam("name", name).queryParam("size", 50).build())
+                .retrieve()
+                .body(JsonNode.class);
+        JsonNode content = page == null ? null : page.get("content");
+        if (content == null || !content.isArray()) {
+            return false;
+        }
+        for (JsonNode e : content) {
+            if (name.equalsIgnoreCase(e.path("name").asString(""))
+                    && creator.equalsIgnoreCase(e.path("creator").asString(""))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Create the recipe; returns its new id. */
     public long createRecipe(String name, String creator, List<Line> lines, List<String> steps) {
         List<Map<String, Object>> ingredientBodies = new ArrayList<>();

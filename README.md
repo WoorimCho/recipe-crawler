@@ -26,7 +26,7 @@ calls IngredientCatalogue / RecipeCatalogue to store it.
 ```
 
 Only **JSON-LD** is read (not microdata / RDFa). A page with no
-`schema.org/Recipe` block returns **422**.
+`schema.org/Recipe` block returns **422**; a URL `robots.txt` forbids returns **403**.
 
 ## API
 
@@ -34,9 +34,19 @@ Only **JSON-LD** is read (not microdata / RDFa). A page with no
 |---|---|---|
 | `POST /api/import/preview` | `{ "url": "https://…" }` | `RecipeDraft` — parsed name / yield / ingredients (each with `matchedId` + `willCreate`) / steps. **Writes nothing.** |
 | `POST /api/import/commit`  | `{ "url": "https://…", "creator": "optional" }` | `ImportResponse` — `{ recipeId, name, ingredientCount, stepCount, ingredientsCreated, sourceUrl }` |
+| `POST /api/crawl` | `{ "seeds": ["https://…"], "maxPages": 25, "maxDepth": 2, "sameHostOnly": true, "dryRun": false, "creator": "optional" }` | `CrawlReport` — `{ pagesFetched, recipesFound, imported[], skipped[] {url, reason}, stoppedBecause }` |
 
 `creator` defaults to `import:<source host>`. Imported recipes are tagged
 `source:imported`.
+
+**Crawl** does a breadth-first walk from the seed URLs. Per host it fetches
+`robots.txt` once and honours the `Disallow`/`Allow` rules for our user-agent
+(falling back to `*`), and it leaves a politeness gap
+(`crawler.politeness-delay`, default 1.5s) between requests to the same host.
+Every page carrying a schema.org Recipe is imported; other pages are scanned for
+same-host links to follow. Bounded by `maxPages` (1–200) and `maxDepth` (0–5);
+each URL is visited once, and a recipe whose `name`+`creator` already exists is
+skipped. `dryRun: true` reports what it found and writes nothing.
 
 Ingredient-line parsing handles: decimals, `1 1/2`, unicode fractions (`½`),
 ranges (`2-3` → midpoint), unit aliases (`tablespoons` → `tbsp`), parentheticals
@@ -67,6 +77,9 @@ curl -s localhost:8086/api/import/preview \
 | `DOWNSTREAM_CONNECT_TIMEOUT` / `DOWNSTREAM_READ_TIMEOUT` | `3s` / `10s` |
 | `CRAWLER_MAX_PAGE_BYTES` | `3000000` |
 | `CRAWLER_CREATOR_PREFIX` | `import` |
+| `CRAWLER_USER_AGENT` | `recipe-crawler/0.1 (+local import tool)` — sent, and matched against robots.txt |
+| `CRAWLER_POLITENESS_DELAY` | `1500ms` — min gap between requests to one host |
+| `CRAWLER_MAX_PAGES` / `CRAWLER_MAX_DEPTH` | `25` / `2` — crawl defaults |
 | `ZIPKIN_ENDPOINT` | `http://localhost:9411/api/v2/spans` |
 
 ## Resilience
@@ -81,19 +94,23 @@ timeout or a 5xx is a fault; a 4xx isn't. State is on `/actuator/prometheus`
 ## Tests
 
 ```bash
-./mvnw test     # 20: ingredient-line parsing (10), JSON-LD extraction incl.
-                #     @graph / HowToStep / HowToSection / malformed-block
-                #     tolerance (5), CatalogueGateway contract (4), context load
+./mvnw test     # 33: ingredient-line parsing (10), JSON-LD extraction incl.
+                #     @graph / HowToStep / HowToSection / malformed-block (5),
+                #     CatalogueGateway contract (4), robots.txt rules (5),
+                #     link extraction (3), crawl BFS incl. dedup / robots /
+                #     maxPages (5), context load
 ```
 
 ## Status
 
-**v1: single-URL import.** Link-following / seed-list crawling is not built yet —
-`preview` + `commit` take one URL at a time.
+**v1 complete.** Single-URL `preview`/`commit` plus `POST /api/crawl`
+(seed-list, same-host link-following, robots.txt, per-host rate limiting,
+visited-set + name/creator dedup). Not built: RDFa/microdata parsing, and a
+fallback that hands non-JSON-LD pages to an LLM (see TODO.txt — RAG).
 
 ## Security ⚠️
 
-`commit` fetches an arbitrary URL the caller supplies and creates catalogue rows.
-It's an internal tool on a trusted network — there's no auth, no per-host
-allowlist, and SSRF is not mitigated. Don't expose it publicly. See
-`../IngredientCatalogue/SECURITY.md`.
+`commit` / `crawl` fetch arbitrary URLs the caller supplies and create catalogue
+rows. It's an internal tool on a trusted network — there's no auth, no per-host
+allowlist, and SSRF is not mitigated (robots.txt is politeness, not a security
+control). Don't expose it publicly. See `../IngredientCatalogue/SECURITY.md`.

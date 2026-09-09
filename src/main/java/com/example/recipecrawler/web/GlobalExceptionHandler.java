@@ -1,5 +1,6 @@
 package com.example.recipecrawler.web;
 
+import com.example.recipecrawler.fetch.RecipePageFetcher.DisallowedByRobotsException;
 import com.example.recipecrawler.parse.SchemaOrgRecipeParser.NoRecipeFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -17,6 +18,12 @@ class GlobalExceptionHandler {
     @ExceptionHandler(NoRecipeFoundException.class)
     ProblemDetail noRecipe(NoRecipeFoundException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage());
+    }
+
+    /** robots.txt forbids fetching the requested URL. */
+    @ExceptionHandler(DisallowedByRobotsException.class)
+    ProblemDetail disallowed(DisallowedByRobotsException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
     /** Bad URL, non-http scheme, empty body, etc. */

@@ -14,7 +14,10 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Ties fetch → parse → resolve → create together. */
+/**
+ * Ties fetch → parse → resolve → create together. The {@code *Html} variants
+ * take already-fetched HTML so {@link CrawlService} doesn't fetch a page twice.
+ */
 @Service
 public class ImportService {
 
@@ -36,7 +39,11 @@ public class ImportService {
 
     /** Fetch + parse only — nothing is written; each line says whether committing would create it. */
     public RecipeDraft preview(String url) {
-        SchemaOrgRecipeParser.Result r = recipeParser.parse(fetcher.fetch(url));
+        return previewHtml(url, fetcher.fetch(url));
+    }
+
+    public RecipeDraft previewHtml(String url, String html) {
+        SchemaOrgRecipeParser.Result r = recipeParser.parse(html);
         List<DraftIngredient> lines = new ArrayList<>();
         for (String raw : r.ingredients()) {
             IngredientLineParser.Parsed p = lineParser.parse(raw);
@@ -49,7 +56,11 @@ public class ImportService {
 
     /** Fetch + parse, create any missing ingredients, then create the recipe. */
     public ImportResponse commit(String url, String creatorOverride) {
-        SchemaOrgRecipeParser.Result r = recipeParser.parse(fetcher.fetch(url));
+        return commitHtml(url, fetcher.fetch(url), creatorOverride);
+    }
+
+    public ImportResponse commitHtml(String url, String html, String creatorOverride) {
+        SchemaOrgRecipeParser.Result r = recipeParser.parse(html);
 
         List<CatalogueGateway.Line> resolved = new ArrayList<>();
         int created = 0;
@@ -65,12 +76,13 @@ public class ImportService {
             resolved.add(new CatalogueGateway.Line(res.ingredientId(), p.raw(), p.amount(), p.unit()));
         }
 
-        String creator = creator(url, creatorOverride);
+        String creator = creatorFor(url, creatorOverride);
         long recipeId = catalogue.createRecipe(r.name(), creator, resolved, r.steps());
         return new ImportResponse(recipeId, r.name(), resolved.size(), r.steps().size(), created, url);
     }
 
-    private String creator(String url, String override) {
+    /** {@code import:<host>} unless overridden. */
+    public String creatorFor(String url, String override) {
         if (override != null && !override.isBlank()) {
             return override.trim();
         }
