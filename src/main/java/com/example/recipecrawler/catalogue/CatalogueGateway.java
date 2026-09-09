@@ -70,9 +70,11 @@ public class CatalogueGateway {
             Map<String, Object> body = new LinkedHashMap<>();
             body.put("ingredientId", l.ingredientId());
             body.put("quantity", l.quantity());
-            if (l.amount() != null) {
+            // RecipeCatalogue rejects an amount with no unit, so only send the
+            // structured pair when we have both; the raw text stays as `quantity`.
+            if (l.amount() != null && l.unit() != null && !l.unit().isBlank()) {
                 body.put("amount", l.amount());
-                body.put("unit", l.unit());       // RecipeCatalogue rejects an amount with no unit
+                body.put("unit", l.unit());
             }
             ingredientBodies.add(body);
         }
