@@ -71,16 +71,19 @@ curl -s localhost:8086/api/import/preview \
 
 ## Resilience
 
-Each outbound target — the source site, IngredientCatalogue, RecipeCatalogue —
-has a short connect/read timeout and its own **circuit breaker**
-(`config/DownstreamResilience` + `CircuitBreakerInterceptor`, resilience4j; a
-per-app copy of the BFF's). Breaker state is on `/actuator/prometheus`
+Each outbound target has a short connect/read timeout (`spring.http.clients.*`)
+and its own **circuit breaker** — breaker names `recipe-source`,
+`ingredient-catalogue`, `recipe-catalogue` (`config/DownstreamResilience` +
+`CircuitBreakerInterceptor`, resilience4j; a per-app copy of the BFF's). A
+timeout or a 5xx is a fault; a 4xx isn't. State is on `/actuator/prometheus`
 (`resilience4j_circuitbreaker_*`).
 
 ## Tests
 
 ```bash
-./mvnw test     # ingredient-line parsing, JSON-LD extraction, context load
+./mvnw test     # 20: ingredient-line parsing (10), JSON-LD extraction incl.
+                #     @graph / HowToStep / HowToSection / malformed-block
+                #     tolerance (5), CatalogueGateway contract (4), context load
 ```
 
 ## Status
