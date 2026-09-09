@@ -1,7 +1,8 @@
 package com.example.recipecrawler;
 
 import com.example.recipecrawler.parse.SchemaOrgRecipeParser;
-import com.example.recipecrawler.parse.SchemaOrgRecipeParser.NoRecipeFoundException;
+import com.example.recipecrawler.parse.NoRecipeFoundException;
+import com.example.recipecrawler.parse.ParsedRecipe;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -27,7 +28,7 @@ class SchemaOrgRecipeParserTest {
                    "recipeInstructions":[
                      {"@type":"HowToStep","text":"Mash the bananas."},
                      {"@type":"HowToStep","text":"Fold in the flour."}]}]}""";
-        SchemaOrgRecipeParser.Result r = parser.parse(page(jsonLd));
+        ParsedRecipe r = parser.parse(page(jsonLd));
 
         assertThat(r.name()).isEqualTo("Banana Bread");
         assertThat(r.yield()).isEqualTo("1 loaf");
@@ -42,7 +43,7 @@ class SchemaOrgRecipeParserTest {
                  {"@type":["Recipe"],"name":"Toast &amp; Jam",
                   "recipeIngredient":["1 slice bread","1 tbsp jam"],
                   "recipeInstructions":"Toast the bread.\\nSpread the jam."}]""";
-        SchemaOrgRecipeParser.Result r = parser.parse(page(jsonLd));
+        ParsedRecipe r = parser.parse(page(jsonLd));
 
         assertThat(r.name()).isEqualTo("Toast & Jam");
         assertThat(r.ingredients()).hasSize(2);

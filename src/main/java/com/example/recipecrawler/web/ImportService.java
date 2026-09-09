@@ -6,7 +6,8 @@ import com.example.recipecrawler.dto.ImportResponse;
 import com.example.recipecrawler.dto.RecipeDraft;
 import com.example.recipecrawler.fetch.RecipePageFetcher;
 import com.example.recipecrawler.parse.IngredientLineParser;
-import com.example.recipecrawler.parse.SchemaOrgRecipeParser;
+import com.example.recipecrawler.parse.ParsedRecipe;
+import com.example.recipecrawler.parse.RecipeExtractor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -22,16 +23,16 @@ import java.util.List;
 public class ImportService {
 
     private final RecipePageFetcher fetcher;
-    private final SchemaOrgRecipeParser recipeParser;
+    private final RecipeExtractor extractor;
     private final IngredientLineParser lineParser;
     private final CatalogueGateway catalogue;
     private final String creatorPrefix;
 
-    public ImportService(RecipePageFetcher fetcher, SchemaOrgRecipeParser recipeParser,
+    public ImportService(RecipePageFetcher fetcher, RecipeExtractor extractor,
                          IngredientLineParser lineParser, CatalogueGateway catalogue,
                          @Value("${crawler.creator-prefix:import}") String creatorPrefix) {
         this.fetcher = fetcher;
-        this.recipeParser = recipeParser;
+        this.extractor = extractor;
         this.lineParser = lineParser;
         this.catalogue = catalogue;
         this.creatorPrefix = creatorPrefix;
@@ -43,7 +44,7 @@ public class ImportService {
     }
 
     public RecipeDraft previewHtml(String url, String html) {
-        SchemaOrgRecipeParser.Result r = recipeParser.parse(html);
+        ParsedRecipe r = extractor.extract(html);
         List<DraftIngredient> lines = new ArrayList<>();
         for (String raw : r.ingredients()) {
             IngredientLineParser.Parsed p = lineParser.parse(raw);
@@ -60,7 +61,7 @@ public class ImportService {
     }
 
     public ImportResponse commitHtml(String url, String html, String creatorOverride) {
-        SchemaOrgRecipeParser.Result r = recipeParser.parse(html);
+        ParsedRecipe r = extractor.extract(html);
 
         List<CatalogueGateway.Line> resolved = new ArrayList<>();
         int created = 0;

@@ -6,6 +6,8 @@ import com.example.recipecrawler.dto.CrawlRequest;
 import com.example.recipecrawler.dto.ImportResponse;
 import com.example.recipecrawler.fetch.RecipePageFetcher;
 import com.example.recipecrawler.parse.LinkExtractor;
+import com.example.recipecrawler.parse.MicrodataRecipeParser;
+import com.example.recipecrawler.parse.RecipeExtractor;
 import com.example.recipecrawler.parse.SchemaOrgRecipeParser;
 import com.example.recipecrawler.web.CrawlService;
 import com.example.recipecrawler.web.ImportService;
@@ -49,7 +51,7 @@ class CrawlServiceTest {
         fetcher = mock(RecipePageFetcher.class);
         imports = mock(ImportService.class);
         catalogue = mock(CatalogueGateway.class);
-        crawl = new CrawlService(fetcher, new SchemaOrgRecipeParser(JsonMapper.builder().build()),
+        crawl = new CrawlService(fetcher, new RecipeExtractor(new SchemaOrgRecipeParser(JsonMapper.builder().build()), new MicrodataRecipeParser()),
                 new LinkExtractor(), imports, catalogue, 25, 2);
 
         when(fetcher.fetch("https://site.test/recipes")).thenReturn(LISTING);

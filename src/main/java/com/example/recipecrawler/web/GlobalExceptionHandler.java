@@ -1,7 +1,7 @@
 package com.example.recipecrawler.web;
 
 import com.example.recipecrawler.fetch.RecipePageFetcher.DisallowedByRobotsException;
-import com.example.recipecrawler.parse.SchemaOrgRecipeParser.NoRecipeFoundException;
+import com.example.recipecrawler.parse.NoRecipeFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;

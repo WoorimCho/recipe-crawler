@@ -1,9 +1,10 @@
 # recipe-crawler — URL → recipe importer
 
 Reads a recipe web page and writes it into the catalogue services. It holds **no
-database** — it fetches HTML, parses the embedded schema.org `Recipe` (JSON-LD),
-turns each "2 cups flour" line into a structured amount + unit + ingredient, and
-calls IngredientCatalogue / RecipeCatalogue to store it.
+database** — it fetches HTML, reads the embedded schema.org `Recipe`
+(JSON-LD, then HTML microdata), turns each "2 cups flour" line into a structured
+amount + unit + ingredient, and calls IngredientCatalogue / RecipeCatalogue to
+store it. No LLM.
 
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1.1-brightgreen)
 ![Java](https://img.shields.io/badge/Java-17-orange)
@@ -25,8 +26,11 @@ calls IngredientCatalogue / RecipeCatalogue to store it.
         (no writes)                                  ImportResponse {recipeId, …}
 ```
 
-Only **JSON-LD** is read (not microdata / RDFa). A page with no
-`schema.org/Recipe` block returns **422**; a URL `robots.txt` forbids returns **403**.
+A recipe is read by trying, in order: **schema.org JSON-LD**
+(`<script type="application/ld+json">`), then **schema.org HTML microdata**
+(`itemscope itemtype=".../Recipe"` + `itemprop`). No LLM. RDFa and free-text
+pages are still out of scope — a page with neither returns **422**; a URL
+`robots.txt` forbids returns **403**.
 
 ## API
 
@@ -94,18 +98,18 @@ timeout or a 5xx is a fault; a 4xx isn't. State is on `/actuator/prometheus`
 ## Tests
 
 ```bash
-./mvnw test     # 33: ingredient-line parsing (10), JSON-LD extraction incl.
-                #     @graph / HowToStep / HowToSection / malformed-block (5),
+./mvnw test     # 39: ingredient-line parsing (10), JSON-LD extraction (5),
+                #     microdata extraction (3), JSON-LD→microdata fallback (3),
                 #     CatalogueGateway contract (4), robots.txt rules (5),
-                #     link extraction (3), crawl BFS incl. dedup / robots /
-                #     maxPages (5), context load
+                #     link extraction (3), crawl BFS (5), context load
 ```
 
 ## Status
 
 **v1 complete.** Single-URL `preview`/`commit` plus `POST /api/crawl`
 (seed-list, same-host link-following, robots.txt, per-host rate limiting,
-visited-set + name/creator dedup). Not built: RDFa/microdata parsing, and a
+visited-set + name/creator dedup); recipes read from JSON-LD or HTML microdata.
+Not built: RDFa parsing, and a
 fallback that hands non-JSON-LD pages to an LLM (see TODO.txt — RAG).
 
 ## Security ⚠️

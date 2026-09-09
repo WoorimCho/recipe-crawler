@@ -6,7 +6,9 @@ import com.example.recipecrawler.dto.CrawlRequest;
 import com.example.recipecrawler.dto.ImportResponse;
 import com.example.recipecrawler.fetch.RecipePageFetcher;
 import com.example.recipecrawler.parse.LinkExtractor;
-import com.example.recipecrawler.parse.SchemaOrgRecipeParser;
+import com.example.recipecrawler.parse.NoRecipeFoundException;
+import com.example.recipecrawler.parse.ParsedRecipe;
+import com.example.recipecrawler.parse.RecipeExtractor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.ResourceAccessException;
@@ -33,19 +35,19 @@ import java.util.Set;
 public class CrawlService {
 
     private final RecipePageFetcher fetcher;
-    private final SchemaOrgRecipeParser recipeParser;
+    private final RecipeExtractor extractor;
     private final LinkExtractor linkExtractor;
     private final ImportService imports;
     private final CatalogueGateway catalogue;
     private final int defaultMaxPages;
     private final int defaultMaxDepth;
 
-    public CrawlService(RecipePageFetcher fetcher, SchemaOrgRecipeParser recipeParser,
+    public CrawlService(RecipePageFetcher fetcher, RecipeExtractor extractor,
                         LinkExtractor linkExtractor, ImportService imports, CatalogueGateway catalogue,
                         @Value("${crawler.max-pages:25}") int defaultMaxPages,
                         @Value("${crawler.max-depth:2}") int defaultMaxDepth) {
         this.fetcher = fetcher;
-        this.recipeParser = recipeParser;
+        this.extractor = extractor;
         this.linkExtractor = linkExtractor;
         this.imports = imports;
         this.catalogue = catalogue;
@@ -103,10 +105,10 @@ public class CrawlService {
                 continue;
             }
 
-            SchemaOrgRecipeParser.Result recipe;
+            ParsedRecipe recipe;
             try {
-                recipe = recipeParser.parse(html);
-            } catch (SchemaOrgRecipeParser.NoRecipeFoundException notARecipe) {
+                recipe = extractor.extract(html);
+            } catch (NoRecipeFoundException notARecipe) {
                 recipe = null;
             }
 
@@ -130,7 +132,7 @@ public class CrawlService {
         return new CrawlReport(req.seeds(), fetched, found, imported, skipped, stopped);
     }
 
-    private void handleRecipe(String url, String html, SchemaOrgRecipeParser.Result recipe,
+    private void handleRecipe(String url, String html, ParsedRecipe recipe,
                               String creatorOverride, boolean dryRun,
                               List<CrawlReport.Item> imported, List<CrawlReport.Skip> skipped) {
         try {

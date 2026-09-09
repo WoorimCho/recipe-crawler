@@ -18,8 +18,8 @@ import java.util.List;
  * instructions given as text, an array of strings, {@code HowToStep}s, or
  * {@code HowToSection}s.
  *
- * <p>Microdata / RDFa are not read — if a page has no JSON-LD Recipe this throws
- * {@link NoRecipeFoundException}.
+ * <p>One strategy behind {@link RecipeExtractor}; if a page has no JSON-LD Recipe
+ * this throws {@link NoRecipeFoundException} and the extractor tries the next.
  */
 @Component
 public class SchemaOrgRecipeParser {
@@ -30,7 +30,7 @@ public class SchemaOrgRecipeParser {
         this.mapper = mapper;
     }
 
-    public Result parse(String html) {
+    public ParsedRecipe parse(String html) {
         Document doc = Jsoup.parse(html);
         JsonNode recipe = null;
         for (Element script : doc.select("script[type=application/ld+json]")) {
@@ -53,7 +53,7 @@ public class SchemaOrgRecipeParser {
         if (name == null || name.isBlank()) {
             name = "Imported recipe";
         }
-        return new Result(name, clean(firstText(recipe.get("recipeYield"))),
+        return new ParsedRecipe(name, clean(firstText(recipe.get("recipeYield"))),
                 ingredients(recipe), steps(recipe));
     }
 
@@ -201,13 +201,4 @@ public class SchemaOrgRecipeParser {
         return s.replaceAll("\\s+", " ").trim();
     }
 
-    public record Result(String name, String yield, List<String> ingredients, List<String> steps) {
-    }
-
-    /** No JSON-LD Recipe on the page → 422 to the caller. */
-    public static class NoRecipeFoundException extends RuntimeException {
-        public NoRecipeFoundException(String message) {
-            super(message);
-        }
-    }
 }
