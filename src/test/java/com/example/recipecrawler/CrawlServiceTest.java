@@ -5,7 +5,9 @@ import com.example.recipecrawler.dto.CrawlReport;
 import com.example.recipecrawler.dto.CrawlRequest;
 import com.example.recipecrawler.dto.ImportResponse;
 import com.example.recipecrawler.fetch.RecipePageFetcher;
+import com.example.recipecrawler.parse.FixedLlmClient;
 import com.example.recipecrawler.parse.LinkExtractor;
+import com.example.recipecrawler.parse.LlmRecipeParser;
 import com.example.recipecrawler.parse.MicrodataRecipeParser;
 import com.example.recipecrawler.parse.RecipeExtractor;
 import com.example.recipecrawler.parse.SchemaOrgRecipeParser;
@@ -51,7 +53,9 @@ class CrawlServiceTest {
         fetcher = mock(RecipePageFetcher.class);
         imports = mock(ImportService.class);
         catalogue = mock(CatalogueGateway.class);
-        crawl = new CrawlService(fetcher, new RecipeExtractor(new SchemaOrgRecipeParser(JsonMapper.builder().build()), new MicrodataRecipeParser()),
+        crawl = new CrawlService(fetcher, new RecipeExtractor(
+                new SchemaOrgRecipeParser(JsonMapper.builder().build()), new MicrodataRecipeParser(),
+                new LlmRecipeParser(FixedLlmClient.disabled(), JsonMapper.builder().build(), 12000)),
                 new LinkExtractor(), imports, catalogue, 25, 2);
 
         when(fetcher.fetch("https://site.test/recipes")).thenReturn(LISTING);
@@ -107,6 +111,18 @@ class CrawlServiceTest {
         assertThat(r.imported()).extracting(CrawlReport.Item::name).containsExactly("Cake");
         assertThat(r.skipped()).extracting(CrawlReport.Skip::reason).contains("robots.txt");
         assertThat(r.pagesFetched()).isEqualTo(2);             // pie never counted
+    }
+
+    @Test
+    void aBlockedPageIsSkippedWithAReadableReason() {
+        when(fetcher.fetch("https://site.test/r/pie"))
+                .thenThrow(RecipePageFetcher.SourcePageException.of(403));
+
+        CrawlReport r = crawl.crawl(req(25, 1, true));
+
+        assertThat(r.imported()).extracting(CrawlReport.Item::name).containsExactly("Cake");
+        assertThat(r.skipped()).extracting(CrawlReport.Skip::reason)
+                .anyMatch(s -> s.contains("blocked automated access"));
     }
 
     @Test

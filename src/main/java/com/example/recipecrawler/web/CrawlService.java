@@ -155,6 +155,9 @@ public class CrawlService {
     }
 
     private static String reason(RuntimeException e) {
+        if (e instanceof RecipePageFetcher.SourcePageException src) {
+            return src.getMessage();
+        }
         if (e instanceof RestClientResponseException status) {
             return "HTTP " + status.getStatusCode().value();
         }

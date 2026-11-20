@@ -16,7 +16,7 @@ public final class InternalAuthClientInterceptor implements ClientHttpRequestInt
     private final String secret;
 
     public InternalAuthClientInterceptor(String secret) {
-        this.secret = secret;
+        this.secret = InternalAuth.requireSecret(secret);
     }
 
     @Override

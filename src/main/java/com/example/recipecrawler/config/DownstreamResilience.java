@@ -14,7 +14,8 @@ import java.time.Duration;
 /**
  * One {@link io.github.resilience4j.circuitbreaker.CircuitBreaker} per outbound
  * target (breaker names: {@code recipe-catalogue}, {@code ingredient-catalogue},
- * {@code recipe-source}), all sharing this config: trips when 50%+ of the last
+ * {@code recipe-source}, and {@code llm} when the free-text fallback is
+ * configured), all sharing this config: trips when 50%+ of the last
  * 20 calls fail or run slow (&gt; 3s); OPEN 15s, then 4 probe calls. State is on
  * {@code /actuator/prometheus} as {@code resilience4j_circuitbreaker_*}.
  */

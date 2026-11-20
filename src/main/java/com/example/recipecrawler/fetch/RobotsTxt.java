@@ -27,7 +27,7 @@ public class RobotsTxt {
     private final Map<String, Rules> cache = new ConcurrentHashMap<>();
 
     public RobotsTxt(RestClient sourcePageClient,
-                     @Value("${crawler.user-agent:recipe-crawler}") String userAgent) {
+                     @Value("${crawler.user-agent:RecipeCrawler}") String userAgent) {
         this.http = sourcePageClient;
         this.userAgent = userAgent.toLowerCase(Locale.ROOT);
     }

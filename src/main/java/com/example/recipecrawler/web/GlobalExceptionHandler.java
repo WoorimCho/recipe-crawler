@@ -1,6 +1,7 @@
 package com.example.recipecrawler.web;
 
 import com.example.recipecrawler.fetch.RecipePageFetcher.DisallowedByRobotsException;
+import com.example.recipecrawler.fetch.RecipePageFetcher.SourcePageException;
 import com.example.recipecrawler.parse.NoRecipeFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -24,6 +25,23 @@ class GlobalExceptionHandler {
     @ExceptionHandler(DisallowedByRobotsException.class)
     ProblemDetail disallowed(DisallowedByRobotsException ex) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    /**
+     * The source page was reachable but returned an error status. A block
+     * (403 / 429 / login wall) is 422 — we can't turn it into a recipe and
+     * retrying won't help; a 404 is 404; anything else is a 502.
+     */
+    @ExceptionHandler(SourcePageException.class)
+    ProblemDetail sourcePage(SourcePageException ex) {
+        HttpStatus status = switch (ex.status()) {
+            case 401, 403, 429, 451 -> HttpStatus.UNPROCESSABLE_ENTITY;
+            case 404, 410 -> HttpStatus.NOT_FOUND;
+            default -> HttpStatus.BAD_GATEWAY;
+        };
+        ProblemDetail p = ProblemDetail.forStatusAndDetail(status, ex.getMessage());
+        p.setTitle("Source page unavailable");
+        return p;
     }
 
     /** Bad URL, non-http scheme, empty body, etc. */

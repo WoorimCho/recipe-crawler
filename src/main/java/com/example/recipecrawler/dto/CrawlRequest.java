@@ -1,6 +1,7 @@
 package com.example.recipecrawler.dto;
 
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
@@ -15,10 +16,10 @@ import java.util.List;
  * @param creator      overrides the {@code import:<host>} creator on imported recipes
  */
 public record CrawlRequest(
-        @NotEmpty List<String> seeds,
+        @NotEmpty @Size(max = Limits.SEEDS) List<@Size(max = Limits.URL_LENGTH) String> seeds,
         Integer maxPages,
         Integer maxDepth,
         Boolean sameHostOnly,
         Boolean dryRun,
-        String creator) {
+        @Size(max = Limits.CREATOR_LENGTH) String creator) {
 }

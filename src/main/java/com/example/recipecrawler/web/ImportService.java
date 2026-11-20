@@ -40,11 +40,15 @@ public class ImportService {
 
     /** Fetch + parse only — nothing is written; each line says whether committing would create it. */
     public RecipeDraft preview(String url) {
-        return previewHtml(url, fetcher.fetch(url));
+        return previewHtml(url, extractor.extractWithLlmFallback(fetcher.fetch(url)));
     }
 
+    /** Crawl entry — HTML already in hand, schema.org strategies only (no LLM fan-out). */
     public RecipeDraft previewHtml(String url, String html) {
-        ParsedRecipe r = extractor.extract(html);
+        return previewHtml(url, extractor.extract(html));
+    }
+
+    private RecipeDraft previewHtml(String url, ParsedRecipe r) {
         List<DraftIngredient> lines = new ArrayList<>();
         for (String raw : r.ingredients()) {
             IngredientLineParser.Parsed p = lineParser.parse(raw);
@@ -57,12 +61,15 @@ public class ImportService {
 
     /** Fetch + parse, create any missing ingredients, then create the recipe. */
     public ImportResponse commit(String url, String creatorOverride) {
-        return commitHtml(url, fetcher.fetch(url), creatorOverride);
+        return commitHtml(url, extractor.extractWithLlmFallback(fetcher.fetch(url)), creatorOverride);
     }
 
+    /** Crawl entry — HTML already in hand, schema.org strategies only (no LLM fan-out). */
     public ImportResponse commitHtml(String url, String html, String creatorOverride) {
-        ParsedRecipe r = extractor.extract(html);
+        return commitHtml(url, extractor.extract(html), creatorOverride);
+    }
 
+    private ImportResponse commitHtml(String url, ParsedRecipe r, String creatorOverride) {
         List<CatalogueGateway.Line> resolved = new ArrayList<>();
         int created = 0;
         for (String raw : r.ingredients()) {

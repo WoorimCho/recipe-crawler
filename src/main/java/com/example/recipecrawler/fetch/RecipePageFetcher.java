@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -29,7 +30,7 @@ public class RecipePageFetcher {
                              RobotsTxt robots,
                              HostRateLimiter rateLimiter,
                              @Value("${crawler.max-page-bytes:3000000}") int maxBytes,
-                             @Value("${crawler.user-agent:recipe-crawler/0.1 (+local import tool)}") String userAgent) {
+                             @Value("${crawler.user-agent:Mozilla/5.0 (compatible; RecipeCrawler/0.1)}") String userAgent) {
         this.http = sourcePageClient;
         this.robots = robots;
         this.rateLimiter = rateLimiter;
@@ -43,12 +44,18 @@ public class RecipePageFetcher {
             throw new DisallowedByRobotsException(uri.toString());
         }
         rateLimiter.awaitTurn(uri);
-        byte[] body = http.get()
-                .uri(uri)
-                .header(HttpHeaders.ACCEPT, "text/html,application/xhtml+xml")
-                .header(HttpHeaders.USER_AGENT, userAgent)
-                .retrieve()
-                .body(byte[].class);
+        byte[] body;
+        try {
+            body = http.get()
+                    .uri(uri)
+                    .header(HttpHeaders.ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+                    .header(HttpHeaders.ACCEPT_LANGUAGE, "en-US,en;q=0.9")
+                    .header(HttpHeaders.USER_AGENT, userAgent)
+                    .retrieve()
+                    .body(byte[].class);
+        } catch (RestClientResponseException http) {
+            throw SourcePageException.of(http.getStatusCode().value());
+        }
         if (body == null || body.length == 0) {
             throw new IllegalStateException("the page returned an empty body");
         }
@@ -77,6 +84,36 @@ public class RecipePageFetcher {
     public static class DisallowedByRobotsException extends RuntimeException {
         public DisallowedByRobotsException(String url) {
             super("robots.txt disallows " + url);
+        }
+    }
+
+    /**
+     * The page was reachable but returned an error status. Carries the status so
+     * the exception handler / crawl report can say <em>why</em> — a bot block
+     * (403 / 429) reads very differently from a plain 404.
+     */
+    public static class SourcePageException extends RuntimeException {
+        private final int status;
+
+        public SourcePageException(int status, String message) {
+            super(message);
+            this.status = status;
+        }
+
+        public int status() {
+            return status;
+        }
+
+        public static SourcePageException of(int status) {
+            String message = switch (status) {
+                case 401, 403, 429, 451 -> "the site blocked automated access (bot protection or a login wall) — "
+                        + "this page can't be imported automatically; add the recipe by hand";
+                case 404, 410 -> "the page wasn't found (HTTP " + status + ")";
+                default -> status >= 500
+                        ? "the site had a server error (HTTP " + status + ") — try again later"
+                        : "the site refused the request (HTTP " + status + ")";
+            };
+            return new SourcePageException(status, message);
         }
     }
 }
