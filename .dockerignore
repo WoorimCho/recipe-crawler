@@ -1,0 +1,8 @@
+# Build output / VCS / IDE
+target/
+.git/
+.idea/
+*.iml
+
+# Local secrets
+.env
